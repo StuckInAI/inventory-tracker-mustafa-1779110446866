@@ -1,7 +1,7 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .header {
@@ -18,9 +18,9 @@
   letter-spacing: -0.3px;
 }
 
-.sub {
-  font-size: 13px;
+.subtitle {
   color: var(--color-text-muted);
+  font-size: 13px;
   margin-top: 4px;
 }
 
@@ -32,156 +32,154 @@
 
 .statCard {
   display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.statIcon {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.statIconSuccess {
-  background: var(--color-success-soft);
-  color: #047857;
-}
-
-.statIconWarning {
-  background: var(--color-warning-soft);
-  color: #b45309;
-}
-
-.statIconInfo {
-  background: var(--color-info-soft);
-  color: #1d4ed8;
-}
-
-.statValue {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .statLabel {
   font-size: 12px;
   color: var(--color-text-muted);
-  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
 }
 
-.grid {
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.statHint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.columns {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 16px;
+  gap: 20px;
 }
 
-@media (max-width: 1024px) {
-  .grid {
+@media (max-width: 980px) {
+  .columns {
     grid-template-columns: 1fr;
   }
 }
 
-.pipeline {
+.list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.pipelineRow {
-  display: grid;
-  grid-template-columns: 140px 1fr 40px;
+.listItem {
+  display: flex;
   align-items: center;
   gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
 }
 
-.pipelineLabel {
+.listItem:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.itemBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMeta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemAside {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.workloadRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.workloadRow:last-child {
+  border-bottom: none;
+}
+
+.workloadName {
   font-size: 13px;
   font-weight: 500;
 }
 
-.pipelineBar {
-  height: 8px;
-  background: var(--color-surface-2);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.pipelineFill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), #8b5cf6);
-  border-radius: 999px;
-}
-
-.pipelineCount {
-  font-size: 13px;
-  font-weight: 600;
-  text-align: right;
-}
-
-.activityList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.activityItem {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.activityDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  margin-top: 6px;
-  flex-shrink: 0;
-}
-
-.activityText {
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.activityTime {
+.workloadRole {
   font-size: 11px;
   color: var(--color-text-muted);
-  margin-top: 2px;
 }
 
-.jobsList {
-  display: flex;
-  flex-direction: column;
+.workloadCount {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pipelineGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
 }
 
-.jobRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+.pipelineStage {
+  padding: 12px;
   border-radius: var(--radius-md);
   background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
 }
 
-.jobInfo {
-  min-width: 0;
-}
-
-.jobTitle {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.jobMeta {
+.pipelineLabel {
   font-size: 11px;
   color: var(--color-text-muted);
-  margin-top: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.pipelineValue {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 4px;
 }

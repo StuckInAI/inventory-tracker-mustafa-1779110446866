@@ -1,4 +1,4 @@
-// Core domain types for the ATS app
+// Shared types for the ATS app
 
 export type Role = 'Admin' | 'Recruiter' | 'HiringManager';
 
@@ -22,6 +22,7 @@ export type Job = {
   status: JobStatus;
   description: string;
   ownerId: string;
+  assignedRecruiterIds?: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -31,70 +32,56 @@ export type Stage =
   | 'Screening'
   | 'Interview'
   | 'Offer'
+  | 'BackgroundCheck'
+  | 'Onboarding'
   | 'Hired'
   | 'Rejected';
 
-export const STAGES: Stage[] = [
+export const PIPELINE_STAGES: Stage[] = [
   'Applied',
   'Screening',
   'Interview',
   'Offer',
+  'BackgroundCheck',
+  'Onboarding',
   'Hired',
   'Rejected',
 ];
 
-export type ActivityEntry = {
-  id: string;
-  at: string;
-  type: 'StageChange' | 'Note' | 'Applied' | 'ChecklistItem';
-  message: string;
-  byUserId?: string;
-};
-
 export type Candidate = {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
   phone?: string;
   jobId: string;
   stage: Stage;
   source?: string;
-  resumeSummary?: string;
+  resumeUrl?: string;
+  coverLetter?: string;
+  notes?: string;
+  assignedRecruiterId?: string;
   appliedAt: string;
   lastActivityAt: string;
-  activity: ActivityEntry[];
-  checklistProgress?: Record<string, string[]>; // templateId -> completed itemIds
+  checklistProgress?: Record<string, boolean>;
 };
 
 export type ChecklistItem = {
   id: string;
   label: string;
+  required?: boolean;
 };
 
 export type ChecklistTemplate = {
   id: string;
   name: string;
-  description?: string;
-  appliesToStage?: Stage;
+  stage: Stage;
   items: ChecklistItem[];
 };
 
-export type AppDataContextValue = {
-  currentUser: User;
-  setCurrentUserId: (id: string) => void;
-  users: User[];
-  jobs: Job[];
-  candidates: Candidate[];
-  checklistTemplates: ChecklistTemplate[];
-  addJob: (data: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>) => Job;
-  updateJob: (id: string, data: Partial<Omit<Job, 'id' | 'createdAt' | 'updatedAt'>>) => void;
-  deleteJob: (id: string) => void;
-  addCandidate: (data: Omit<Candidate, 'id' | 'appliedAt' | 'lastActivityAt' | 'activity'>) => Candidate;
-  updateCandidate: (id: string, data: Partial<Candidate>) => void;
-  moveCandidateStage: (id: string, stage: Stage) => void;
-  addCandidateNote: (id: string, note: string) => void;
-  toggleChecklistItem: (candidateId: string, templateId: string, itemId: string) => void;
-  addUser: (data: Omit<User, 'id'>) => User;
-  updateUser: (id: string, data: Partial<User>) => void;
-  removeUser: (id: string) => void;
+export type ActivityLog = {
+  id: string;
+  candidateId: string;
+  message: string;
+  actorId: string;
+  createdAt: string;
 };
