@@ -1,38 +1,41 @@
-import { useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import styles from './Modal.module.css';
 
 type ModalProps = {
-  open: boolean;
-  onClose: () => void;
   title: string;
+  onClose: () => void;
   children: ReactNode;
-  width?: number;
+  footer?: ReactNode;
+  size?: 'sm' | 'md' | 'lg';
 };
 
-export default function Modal({ open, onClose, title, children, width = 520 }: ModalProps) {
+export default function Modal({ title, onClose, children, footer, size = 'md' }: ModalProps) {
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
+    function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
-    };
+    }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  }, [onClose]);
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} style={{ maxWidth: width }} onClick={(e) => e.stopPropagation()}>
+    <div className={styles.backdrop} onClick={onClose}>
+      <div
+        className={`${styles.modal} ${styles[size] ?? ''}`}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className={styles.header}>
-          <h3 className={styles.title}>{title}</h3>
+          <h2 className={styles.title}>{title}</h2>
           <button className={styles.close} onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
         <div className={styles.body}>{children}</div>
+        {footer && <div className={styles.footer}>{footer}</div>}
       </div>
     </div>
   );

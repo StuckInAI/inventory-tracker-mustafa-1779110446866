@@ -1,23 +1,30 @@
-const PREFIX = 'ats_v1_';
+const PREFIX = 'ats-recruitment:';
 
-export function loadState<T>(key: string, fallback: T): T {
+export function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
   try {
-    const raw = localStorage.getItem(PREFIX + key);
-    if (!raw) return fallback;
+    const raw = window.localStorage.getItem(PREFIX + key);
+    if (raw === null) return fallback;
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
   }
 }
 
-export function saveState<T>(key: string, value: T): void {
+export function saveToStorage<T>(key: string, value: T): void {
+  if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
   } catch {
-    // ignore
+    // ignore quota errors
   }
 }
 
-export function uid(prefix: string = 'id'): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+export function clearStorage(key: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(PREFIX + key);
+  } catch {
+    // ignore
+  }
 }

@@ -6,7 +6,7 @@ export type User = {
   email: string;
   role: Role;
   active: boolean;
-  title?: string;
+  avatarColor?: string;
 };
 
 export type JobStatus = 'Draft' | 'Open' | 'OnHold' | 'Closed';
@@ -25,7 +25,7 @@ export type Job = {
   updatedAt: string;
 };
 
-export type CandidateStage =
+export type PipelineStage =
   | 'Applied'
   | 'Screening'
   | 'Interview'
@@ -33,54 +33,58 @@ export type CandidateStage =
   | 'Hired'
   | 'Rejected';
 
+export const PIPELINE_STAGES: PipelineStage[] = [
+  'Applied',
+  'Screening',
+  'Interview',
+  'Offer',
+  'Hired',
+  'Rejected',
+];
+
 export type CandidateNote = {
   id: string;
+  authorId: string;
   body: string;
-  at: string;
-  by: string;
+  createdAt: string;
 };
 
 export type CandidateActivity = {
   id: string;
-  type: 'StageChange' | 'Note' | 'Applied' | 'Other';
-  at: string;
-  by: string;
-  from?: CandidateStage;
-  to?: CandidateStage;
-  note?: string;
-  message?: string;
+  type: 'StageChange' | 'Note' | 'Created' | 'Updated';
+  message: string;
+  createdAt: string;
+  authorId?: string;
 };
 
 export type Candidate = {
   id: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
+  name: string;
   email: string;
   phone?: string;
   jobId: string;
-  stage: CandidateStage;
+  stage: PipelineStage;
   source?: string;
-  location?: string;
   resumeSummary?: string;
-  appliedAt: string;
-  lastActivityAt: string;
+  rating?: number;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
   notes: CandidateNote[];
   activity: CandidateActivity[];
-  checklistProgress?: Record<string, string[]>;
-  tags?: string[];
 };
 
 export type ChecklistItem = {
   id: string;
   label: string;
-  required?: boolean;
+  done: boolean;
 };
 
-export type ChecklistTemplate = {
+export type Checklist = {
   id: string;
   name: string;
+  stage: PipelineStage;
   description?: string;
-  appliesToStage?: CandidateStage;
   items: ChecklistItem[];
+  createdAt: string;
 };
