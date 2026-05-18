@@ -1,0 +1,1 @@
+src/types/index.ts, src/pages/CandidateDetailPage.tsx, src/pages/CandidatesPage.tsx, src/pages/CareersJobPage.tsx, src/pages/ChecklistsPage.tsx, src/pages/DashboardPage.tsx, src/pages/JobDetailPage.tsx, src/hooks/useAppData.tsx, src/lib/seed.ts
