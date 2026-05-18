@@ -1,0 +1,47 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.required {
+  color: var(--color-danger);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.field :global(input),
+.field :global(textarea),
+.field :global(select) {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field :global(input:focus),
+.field :global(textarea:focus),
+.field :global(select:focus) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.field :global(textarea) {
+  resize: vertical;
+  min-height: 90px;
+  font-family: inherit;
+}
