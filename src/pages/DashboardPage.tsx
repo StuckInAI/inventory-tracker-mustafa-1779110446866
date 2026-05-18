@@ -1,257 +1,151 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Briefcase, Users, Clock, AlertTriangle, CheckSquare, ArrowRight } from 'lucide-react';
+import { Briefcase, Users, TrendingUp, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useAppData } from '@/hooks/useAppData';
 import Card, { CardHeader } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import StageBadge from '@/components/ui/StageBadge';
-import EmptyState from '@/components/ui/EmptyState';
-import { PIPELINE_STAGES } from '@/types';
-import { formatDate, daysSince, initials } from '@/lib/format';
-import styles from './DashboardPage.module.css';
+import { initials, formatRelative } from '@/lib/format';
+import type { CandidateStage } from '@/types';
+
+const pipelineStages: CandidateStage[] = ['Applied', 'Screening', 'Interview', 'Offer', 'Hired'];
 
 export default function DashboardPage() {
-  const { currentUser, jobs, candidates, users, progress, checklistTemplates } = useAppData();
+  const { jobs, candidates, currentUser } = useAppData();
 
-  const openJobs = jobs.filter((j) => j.status === 'Open');
-  const myJobs =
-    currentUser.role === 'Recruiter'
-      ? openJobs.filter((j) => j.assignedRecruiterIds.includes(currentUser.id))
-      : openJobs;
+  const stats = useMemo(() => {
+    const openJobs = jobs.filter((j) => j.status === 'Open').length;
+    const activeCandidates = candidates.filter((c) => c.stage !== 'Hired' && c.stage !== 'Rejected').length;
+    const hired = candidates.filter((c) => c.stage === 'Hired').length;
+    const offers = candidates.filter((c) => c.stage === 'Offer').length;
+    return { openJobs, activeCandidates, hired, offers };
+  }, [jobs, candidates]);
 
-  const recentApplications = [...candidates]
-    .filter((c) => c.source === 'CareersPage')
-    .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
-    .slice(0, 5);
-
-  const stuckCandidates = candidates
-    .filter((c) => daysSince(c.lastActivityAt) >= 3 && c.stage !== 'Hired' && c.stage !== 'Rejected')
-    .filter((c) => currentUser.role !== 'Recruiter' || c.assignedRecruiterId === currentUser.id)
-    .slice(0, 5);
-
-  const stageCounts = PIPELINE_STAGES.map((stage) => ({
-    stage,
-    count: candidates.filter((c) => c.stage === stage).length,
-  }));
-
-  const recruiterWorkload = users
-    .filter((u) => u.role === 'Recruiter' && u.active)
-    .map((u) => ({
-      user: u,
-      open: candidates.filter(
-        (c) => c.assignedRecruiterId === u.id && c.stage !== 'Hired' && c.stage !== 'Rejected'
-      ).length,
+  const pipelineCounts = useMemo(() => {
+    return pipelineStages.map((stage) => ({
+      stage,
+      count: candidates.filter((c) => c.stage === stage).length,
     }));
+  }, [candidates]);
 
-  const pendingChecklistItems = candidates
-    .filter((c) => c.stage === 'Onboarding' || c.stage === 'BackgroundCheck')
-    .filter((c) => currentUser.role !== 'Recruiter' || c.assignedRecruiterId === currentUser.id)
-    .map((c) => {
-      const tpl = checklistTemplates.find((t) => t.stage === c.stage);
-      if (!tpl) return null;
-      const p = progress.find((pp) => pp.candidateId === c.id && pp.templateId === tpl.id);
-      const completed = p ? p.completedItemIds.length : 0;
-      const total = tpl.items.length;
-      if (completed >= total) return null;
-      return { candidate: c, tpl, completed, total };
-    })
-    .filter((v): v is NonNullable<typeof v> => v !== null)
-    .slice(0, 5);
+  const recentCandidates = useMemo(() => {
+    return [...candidates]
+      .sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime())
+      .slice(0, 6);
+  }, [candidates]);
+
+  const myJobs = useMemo(() => {
+    return jobs
+      .filter((j) => j.ownerId === currentUser.id)
+      .slice(0, 5);
+  }, [jobs, currentUser.id]);
 
   return (
-    <div className={styles.page}>
-      <div className={styles.statsGrid}>
-        <StatCard
-          icon={<Briefcase size={20} />}
-          label="Open Jobs"
-          value={openJobs.length}
-          accent="primary"
-        />
-        <StatCard
-          icon={<Users size={20} />}
-          label="Active Candidates"
-          value={candidates.filter((c) => c.stage !== 'Hired' && c.stage !== 'Rejected').length}
-          accent="info"
-        />
-        <StatCard
-          icon={<Clock size={20} />}
-          label="New This Week"
-          value={candidates.filter((c) => daysSince(c.appliedAt) <= 7).length}
-          accent="warning"
-        />
-        <StatCard
-          icon={<CheckSquare size={20} />}
-          label="In Onboarding"
-          value={candidates.filter((c) => c.stage === 'Onboarding' || c.stage === 'BackgroundCheck').length}
-          accent="success"
-        />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700 }}>Dashboard</h1>
+        <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 4 }}>
+          A snapshot of your recruiting activity across the team.
+        </div>
       </div>
 
-      <div className={styles.grid}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+        <StatCard label="Open jobs" value={stats.openJobs} icon={<Briefcase size={18} />} tone="primary" />
+        <StatCard label="Active candidates" value={stats.activeCandidates} icon={<Users size={18} />} tone="info" />
+        <StatCard label="Outstanding offers" value={stats.offers} icon={<TrendingUp size={18} />} tone="warning" />
+        <StatCard label="Hired this year" value={stats.hired} icon={<CheckCircle2 size={18} />} tone="success" />
+      </div>
+
+      <Card>
+        <CardHeader title="Pipeline overview" subtitle="Where candidates are across all open roles" />
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${pipelineStages.length}, 1fr)`, gap: 12 }}>
+          {pipelineCounts.map(({ stage, count }) => (
+            <div
+              key={stage}
+              style={{
+                padding: 14,
+                background: 'var(--color-surface-2)',
+                borderRadius: 'var(--radius-md)',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 22, fontWeight: 700 }}>{count}</div>
+              <div style={{ marginTop: 6 }}>
+                <StageBadge stage={stage} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <Card>
           <CardHeader
-            title="Pipeline overview"
-            subtitle="Candidates per stage across all jobs"
+            title="Recent activity"
+            subtitle="Latest candidate updates"
+            action={<Link to="/candidates" style={{ fontSize: 12, color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>View all <ArrowRight size={12} /></Link>}
           />
-          <div className={styles.stageList}>
-            {stageCounts.map(({ stage, count }) => (
-              <div key={stage} className={styles.stageRow}>
-                <StageBadge stage={stage} />
-                <div className={styles.stageBar}>
-                  <div
-                    className={styles.stageBarFill}
-                    style={{
-                      width: `${Math.max(
-                        4,
-                        (count / Math.max(1, Math.max(...stageCounts.map((s) => s.count)))) * 100
-                      )}%`,
-                    }}
-                  />
-                </div>
-                <div className={styles.stageCount}>{count}</div>
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {recentCandidates.map((c) => {
+              const job = jobs.find((j) => j.id === c.jobId);
+              return (
+                <Link
+                  key={c.id}
+                  to={`/candidates/${c.id}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 4px', borderBottom: '1px solid var(--color-border)' }}
+                >
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--color-primary), #8b5cf6)',
+                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 600, fontSize: 11, flexShrink: 0,
+                  }}>
+                    {initials(c.fullName)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c.fullName}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                      {job?.title ?? 'Job removed'} • {formatRelative(c.lastActivityAt)}
+                    </div>
+                  </div>
+                  <StageBadge stage={c.stage} />
+                </Link>
+              );
+            })}
           </div>
         </Card>
 
         <Card>
           <CardHeader
-            title={currentUser.role === 'Recruiter' ? 'My open jobs' : 'Open jobs'}
-            subtitle={`${myJobs.length} active position${myJobs.length === 1 ? '' : 's'}`}
-            action={
-              <Link to="/jobs" className={styles.link}>
-                View all <ArrowRight size={14} />
-              </Link>
-            }
+            title="My jobs"
+            subtitle={`Jobs you own as ${currentUser.name.split(' ')[0]}`}
+            action={<Link to="/jobs" style={{ fontSize: 12, color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>View all <ArrowRight size={12} /></Link>}
           />
           {myJobs.length === 0 ? (
-            <EmptyState title="No open jobs" description="Create a job to start receiving applications." />
+            <div style={{ padding: 20, textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)' }}>
+              You don't own any jobs yet.
+            </div>
           ) : (
-            <div className={styles.list}>
-              {myJobs.slice(0, 5).map((job) => {
-                const count = candidates.filter((c) => c.jobId === job.id).length;
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {myJobs.map((j) => {
+                const count = candidates.filter((c) => c.jobId === j.id).length;
                 return (
-                  <Link key={job.id} to={`/jobs/${job.id}`} className={styles.listItem}>
-                    <div>
-                      <div className={styles.itemTitle}>{job.title}</div>
-                      <div className={styles.itemSub}>
-                        {job.department} · {job.location}
+                  <Link
+                    key={j.id}
+                    to={`/jobs/${j.id}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: '1px solid var(--color-border)' }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{j.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                        {j.department} • {j.location}
                       </div>
                     </div>
-                    <Badge tone="info">{count} candidates</Badge>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{count} candidates</div>
+                    <Badge tone={j.status === 'Open' ? 'success' : j.status === 'Draft' ? 'neutral' : 'warning'}>{j.status}</Badge>
                   </Link>
                 );
               })}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      <div className={styles.grid}>
-        <Card>
-          <CardHeader
-            title="Recent applications"
-            subtitle="Latest submissions from the Careers Page"
-          />
-          {recentApplications.length === 0 ? (
-            <EmptyState title="No recent applications" />
-          ) : (
-            <div className={styles.list}>
-              {recentApplications.map((c) => {
-                const job = jobs.find((j) => j.id === c.jobId);
-                return (
-                  <Link key={c.id} to={`/candidates/${c.id}`} className={styles.listItem}>
-                    <div className={styles.candidateRow}>
-                      <div className={styles.avatar}>{initials(c.fullName)}</div>
-                      <div>
-                        <div className={styles.itemTitle}>{c.fullName}</div>
-                        <div className={styles.itemSub}>
-                          {job?.title ?? '—'} · {formatDate(c.appliedAt)}
-                        </div>
-                      </div>
-                    </div>
-                    <StageBadge stage={c.stage} />
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="Needs attention"
-            subtitle="Candidates without recent activity (3+ days)"
-          />
-          {stuckCandidates.length === 0 ? (
-            <EmptyState
-              icon={<AlertTriangle size={20} />}
-              title="All caught up!"
-              description="Every candidate has recent activity."
-            />
-          ) : (
-            <div className={styles.list}>
-              {stuckCandidates.map((c) => (
-                <Link key={c.id} to={`/candidates/${c.id}`} className={styles.listItem}>
-                  <div className={styles.candidateRow}>
-                    <div className={styles.avatar}>{initials(c.fullName)}</div>
-                    <div>
-                      <div className={styles.itemTitle}>{c.fullName}</div>
-                      <div className={styles.itemSub}>
-                        No activity for {daysSince(c.lastActivityAt)} days
-                      </div>
-                    </div>
-                  </div>
-                  <StageBadge stage={c.stage} />
-                </Link>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      <div className={styles.grid}>
-        <Card>
-          <CardHeader title="Pending checklist items" subtitle="Onboarding & background-check progress" />
-          {pendingChecklistItems.length === 0 ? (
-            <EmptyState title="No pending checklist work" />
-          ) : (
-            <div className={styles.list}>
-              {pendingChecklistItems.map(({ candidate, tpl, completed, total }) => (
-                <Link key={candidate.id} to={`/candidates/${candidate.id}`} className={styles.listItem}>
-                  <div className={styles.candidateRow}>
-                    <div className={styles.avatar}>{initials(candidate.fullName)}</div>
-                    <div>
-                      <div className={styles.itemTitle}>{candidate.fullName}</div>
-                      <div className={styles.itemSub}>
-                        {tpl.name} — {completed}/{total} complete
-                      </div>
-                    </div>
-                  </div>
-                  <StageBadge stage={candidate.stage} />
-                </Link>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card>
-          <CardHeader title="Recruiter workload" subtitle="Open candidates assigned per recruiter" />
-          {recruiterWorkload.length === 0 ? (
-            <EmptyState title="No recruiters yet" />
-          ) : (
-            <div className={styles.list}>
-              {recruiterWorkload.map(({ user, open }) => (
-                <div key={user.id} className={styles.listItem}>
-                  <div className={styles.candidateRow}>
-                    <div className={styles.avatar}>{initials(user.name)}</div>
-                    <div>
-                      <div className={styles.itemTitle}>{user.name}</div>
-                      <div className={styles.itemSub}>{user.email}</div>
-                    </div>
-                  </div>
-                  <Badge tone={open > 5 ? 'warning' : 'info'}>{open} open</Badge>
-                </div>
-              ))}
             </div>
           )}
         </Card>
@@ -260,24 +154,33 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  accent: 'primary' | 'info' | 'warning' | 'success';
-}) {
+function StatCard({ label, value, icon, tone }: { label: string; value: number; icon: React.ReactNode; tone: 'primary' | 'info' | 'warning' | 'success' }) {
+  const bg = {
+    primary: 'var(--color-primary-soft)',
+    info: 'var(--color-info-soft)',
+    warning: 'var(--color-warning-soft)',
+    success: 'var(--color-success-soft)',
+  }[tone];
+  const color = {
+    primary: 'var(--color-primary)',
+    info: '#1d4ed8',
+    warning: '#b45309',
+    success: '#047857',
+  }[tone];
   return (
-    <div className={styles.statCard}>
-      <div className={`${styles.statIcon} ${styles[`accent_${accent}`]}`}>{icon}</div>
-      <div>
-        <div className={styles.statValue}>{value}</div>
-        <div className={styles.statLabel}>{label}</div>
+    <Card>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{value}</div>
+        </div>
       </div>
-    </div>
+    </Card>
   );
 }

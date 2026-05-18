@@ -1,308 +1,259 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type {
-  Candidate,
-  CandidateChecklistProgress,
-  ChecklistTemplate,
   Job,
-  PipelineStage,
-  Role,
-  TimelineEntry,
+  Candidate,
   User,
+  Role,
+  ChecklistTemplate,
+  ChecklistItem,
+  CandidateStage,
+  CandidateActivity,
+  CandidateNote,
 } from '@/types';
-import { loadState, saveState, uid } from '@/lib/storage';
-import {
-  seedCandidates,
-  seedChecklistTemplates,
-  seedJobs,
-  seedTimeline,
-  seedUsers,
-} from '@/lib/seed';
+import { seedJobs, seedCandidates, seedUsers, seedChecklists } from '@/lib/seed';
+import { loadFromStorage, saveToStorage } from '@/lib/storage';
 
-type AppDataContextValue = {
-  currentUser: User;
-  users: User[];
+const STORAGE_KEY = 'ats-recruitment-data-v1';
+
+type PersistedState = {
   jobs: Job[];
   candidates: Candidate[];
-  timeline: TimelineEntry[];
-  checklistTemplates: ChecklistTemplate[];
-  progress: CandidateChecklistProgress[];
-  setCurrentUserId: (id: string) => void;
-  // user mgmt
-  addUser: (input: { name: string; email: string; role: Role }) => void;
-  toggleUserActive: (id: string) => void;
-  updateUserRole: (id: string, role: Role) => void;
-  // jobs
-  addJob: (input: Omit<Job, 'id' | 'createdAt'>) => Job;
-  updateJob: (id: string, patch: Partial<Job>) => void;
-  deleteJob: (id: string) => void;
-  // candidates
-  addCandidate: (input: Omit<Candidate, 'id' | 'appliedAt' | 'lastActivityAt'>) => Candidate;
-  updateCandidate: (id: string, patch: Partial<Candidate>) => void;
-  moveCandidateStage: (id: string, toStage: PipelineStage) => void;
-  assignCandidate: (id: string, recruiterId: string | null) => void;
-  // timeline
-  addNote: (candidateId: string, content: string) => void;
-  sendEmail: (candidateId: string, subject: string, body: string) => void;
-  // checklists
-  addChecklistTemplate: (tpl: Omit<ChecklistTemplate, 'id'>) => void;
-  toggleChecklistItem: (candidateId: string, templateId: string, itemId: string) => void;
-  saveFormSubmission: (candidateId: string, templateId: string, itemId: string, value: string) => void;
+  users: User[];
+  checklists: ChecklistTemplate[];
+  currentUserId: string;
 };
 
-const AppDataContext = createContext<AppDataContextValue | null>(null);
+export type AppDataContextValue = {
+  jobs: Job[];
+  candidates: Candidate[];
+  users: User[];
+  checklists: ChecklistTemplate[];
+  currentUser: User;
+  setCurrentUserId: (id: string) => void;
+
+  // Jobs
+  addJob: (data: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>) => Job;
+  updateJob: (id: string, data: Partial<Omit<Job, 'id' | 'createdAt'>>) => void;
+  deleteJob: (id: string) => void;
+
+  // Candidates
+  addCandidate: (data: Omit<Candidate, 'id' | 'appliedAt' | 'lastActivityAt'>) => Candidate;
+  updateCandidate: (id: string, data: Partial<Candidate>) => void;
+  updateCandidateStage: (id: string, stage: CandidateStage) => void;
+  addCandidateNote: (id: string, body: string) => void;
+  deleteCandidate: (id: string) => void;
+
+  // Users
+  addUser: (data: Omit<User, 'id'>) => User;
+  updateUser: (id: string, data: Partial<User>) => void;
+  deleteUser: (id: string) => void;
+
+  // Checklists
+  addChecklist: (data: Omit<ChecklistTemplate, 'id'>) => ChecklistTemplate;
+  updateChecklist: (id: string, data: Partial<ChecklistTemplate>) => void;
+  deleteChecklist: (id: string) => void;
+  toggleChecklistItemForCandidate: (candidateId: string, checklistId: string, itemId: string) => void;
+
+  resetData: () => void;
+};
+
+const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
+
+function generateId(prefix: string): string {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function getInitialState(): PersistedState {
+  const stored = loadFromStorage<PersistedState>(STORAGE_KEY);
+  if (stored) return stored;
+  return {
+    jobs: seedJobs,
+    candidates: seedCandidates,
+    users: seedUsers,
+    checklists: seedChecklists,
+    currentUserId: seedUsers[0]?.id ?? '',
+  };
+}
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<User[]>(() => loadState<User[]>('users', seedUsers));
-  const [jobs, setJobs] = useState<Job[]>(() => loadState<Job[]>('jobs', seedJobs));
-  const [candidates, setCandidates] = useState<Candidate[]>(() => loadState<Candidate[]>('candidates', seedCandidates));
-  const [timeline, setTimeline] = useState<TimelineEntry[]>(() => loadState<TimelineEntry[]>('timeline', seedTimeline));
-  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>(() =>
-    loadState<ChecklistTemplate[]>('templates', seedChecklistTemplates)
-  );
-  const [progress, setProgress] = useState<CandidateChecklistProgress[]>(() =>
-    loadState<CandidateChecklistProgress[]>('progress', [])
-  );
-  const [currentUserId, setCurrentUserIdState] = useState<string>(() =>
-    loadState<string>('currentUserId', 'u_admin')
-  );
+  const [state, setState] = useState<PersistedState>(() => getInitialState());
 
-  useEffect(() => saveState('users', users), [users]);
-  useEffect(() => saveState('jobs', jobs), [jobs]);
-  useEffect(() => saveState('candidates', candidates), [candidates]);
-  useEffect(() => saveState('timeline', timeline), [timeline]);
-  useEffect(() => saveState('templates', checklistTemplates), [checklistTemplates]);
-  useEffect(() => saveState('progress', progress), [progress]);
-  useEffect(() => saveState('currentUserId', currentUserId), [currentUserId]);
+  useEffect(() => {
+    saveToStorage(STORAGE_KEY, state);
+  }, [state]);
 
-  const currentUser = useMemo<User>(() => {
-    return users.find((u) => u.id === currentUserId) ?? users[0];
-  }, [users, currentUserId]);
-
-  const setCurrentUserId = useCallback((id: string) => setCurrentUserIdState(id), []);
-
-  const addUser: AppDataContextValue['addUser'] = useCallback((input) => {
-    const user: User = { id: uid('u'), name: input.name, email: input.email, role: input.role, active: true };
-    setUsers((prev) => [...prev, user]);
-  }, []);
-
-  const toggleUserActive: AppDataContextValue['toggleUserActive'] = useCallback((id) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, active: !u.active } : u)));
-  }, []);
-
-  const updateUserRole: AppDataContextValue['updateUserRole'] = useCallback((id, role) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)));
-  }, []);
-
-  const addJob: AppDataContextValue['addJob'] = useCallback((input) => {
-    const job: Job = { ...input, id: uid('j'), createdAt: new Date().toISOString() };
-    setJobs((prev) => [job, ...prev]);
-    return job;
-  }, []);
-
-  const updateJob: AppDataContextValue['updateJob'] = useCallback((id, patch) => {
-    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
-  }, []);
-
-  const deleteJob: AppDataContextValue['deleteJob'] = useCallback((id) => {
-    setJobs((prev) => prev.filter((j) => j.id !== id));
-    setCandidates((prev) => prev.filter((c) => c.jobId !== id));
-  }, []);
-
-  const addTimelineEntry = useCallback((entry: TimelineEntry) => {
-    setTimeline((prev) => [entry, ...prev]);
-  }, []);
-
-  const addCandidate: AppDataContextValue['addCandidate'] = useCallback(
-    (input) => {
-      const now = new Date().toISOString();
-      const c: Candidate = { ...input, id: uid('c'), appliedAt: now, lastActivityAt: now };
-      setCandidates((prev) => [c, ...prev]);
-      addTimelineEntry({
-        id: uid('t'),
-        candidateId: c.id,
-        type: 'system',
-        authorId: null,
-        authorName: 'System',
-        createdAt: now,
-        content:
-          input.source === 'CareersPage'
-            ? 'Application received via Careers Page.'
-            : 'Candidate added by internal staff.',
-      });
-      return c;
-    },
-    [addTimelineEntry]
-  );
-
-  const updateCandidate: AppDataContextValue['updateCandidate'] = useCallback((id, patch) => {
-    setCandidates((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...patch, lastActivityAt: new Date().toISOString() } : c))
-    );
-  }, []);
-
-  const moveCandidateStage: AppDataContextValue['moveCandidateStage'] = useCallback(
-    (id, toStage) => {
-      setCandidates((prev) => {
-        const c = prev.find((x) => x.id === id);
-        if (!c) return prev;
-        if (c.stage === toStage) return prev;
-        const fromStage = c.stage;
-        const now = new Date().toISOString();
-        addTimelineEntry({
-          id: uid('t'),
-          candidateId: id,
-          type: 'stage_change',
-          authorId: currentUser.id,
-          authorName: currentUser.name,
-          createdAt: now,
-          content: `Moved from ${fromStage} to ${toStage}.`,
-          fromStage,
-          toStage,
-        });
-        return prev.map((x) => (x.id === id ? { ...x, stage: toStage, lastActivityAt: now } : x));
-      });
-    },
-    [addTimelineEntry, currentUser]
-  );
-
-  const assignCandidate: AppDataContextValue['assignCandidate'] = useCallback((id, recruiterId) => {
-    setCandidates((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, assignedRecruiterId: recruiterId, lastActivityAt: new Date().toISOString() } : c
-      )
-    );
-  }, []);
-
-  const addNote: AppDataContextValue['addNote'] = useCallback(
-    (candidateId, content) => {
-      const now = new Date().toISOString();
-      addTimelineEntry({
-        id: uid('t'),
-        candidateId,
-        type: 'note',
-        authorId: currentUser.id,
-        authorName: currentUser.name,
-        createdAt: now,
-        content,
-      });
-      setCandidates((prev) => prev.map((c) => (c.id === candidateId ? { ...c, lastActivityAt: now } : c)));
-    },
-    [addTimelineEntry, currentUser]
-  );
-
-  const sendEmail: AppDataContextValue['sendEmail'] = useCallback(
-    (candidateId, subject, body) => {
-      const now = new Date().toISOString();
-      addTimelineEntry({
-        id: uid('t'),
-        candidateId,
-        type: 'email',
-        authorId: currentUser.id,
-        authorName: currentUser.name,
-        createdAt: now,
-        subject,
-        content: body,
-      });
-      setCandidates((prev) => prev.map((c) => (c.id === candidateId ? { ...c, lastActivityAt: now } : c)));
-    },
-    [addTimelineEntry, currentUser]
-  );
-
-  const addChecklistTemplate: AppDataContextValue['addChecklistTemplate'] = useCallback((tpl) => {
-    const t: ChecklistTemplate = { ...tpl, id: uid('tpl') };
-    setChecklistTemplates((prev) => [...prev, t]);
-  }, []);
-
-  const ensureProgress = useCallback(
-    (candidateId: string, templateId: string): CandidateChecklistProgress => {
-      const existing = progress.find((p) => p.candidateId === candidateId && p.templateId === templateId);
-      if (existing) return existing;
-      const fresh: CandidateChecklistProgress = {
-        candidateId,
-        templateId,
-        completedItemIds: [],
-        formSubmissions: {},
-      };
-      setProgress((prev) => [...prev, fresh]);
-      return fresh;
-    },
-    [progress]
-  );
-
-  const toggleChecklistItem: AppDataContextValue['toggleChecklistItem'] = useCallback(
-    (candidateId, templateId, itemId) => {
-      ensureProgress(candidateId, templateId);
-      setProgress((prev) => {
-        const exists = prev.find((p) => p.candidateId === candidateId && p.templateId === templateId);
-        const base: CandidateChecklistProgress = exists ?? {
-          candidateId,
-          templateId,
-          completedItemIds: [],
-          formSubmissions: {},
-        };
-        const has = base.completedItemIds.includes(itemId);
-        const updated: CandidateChecklistProgress = {
-          ...base,
-          completedItemIds: has
-            ? base.completedItemIds.filter((i) => i !== itemId)
-            : [...base.completedItemIds, itemId],
-        };
-        if (exists) {
-          return prev.map((p) => (p === exists ? updated : p));
-        }
-        return [...prev, updated];
-      });
-    },
-    [ensureProgress]
-  );
-
-  const saveFormSubmission: AppDataContextValue['saveFormSubmission'] = useCallback(
-    (candidateId, templateId, itemId, value) => {
-      ensureProgress(candidateId, templateId);
-      setProgress((prev) => {
-        const exists = prev.find((p) => p.candidateId === candidateId && p.templateId === templateId);
-        const base: CandidateChecklistProgress = exists ?? {
-          candidateId,
-          templateId,
-          completedItemIds: [],
-          formSubmissions: {},
-        };
-        const updated: CandidateChecklistProgress = {
-          ...base,
-          formSubmissions: { ...base.formSubmissions, [itemId]: value },
-        };
-        if (exists) return prev.map((p) => (p === exists ? updated : p));
-        return [...prev, updated];
-      });
-    },
-    [ensureProgress]
-  );
+  const currentUser = useMemo(() => {
+    return state.users.find((u) => u.id === state.currentUserId) ?? state.users[0];
+  }, [state.users, state.currentUserId]);
 
   const value: AppDataContextValue = {
+    jobs: state.jobs,
+    candidates: state.candidates,
+    users: state.users,
+    checklists: state.checklists,
     currentUser,
-    users,
-    jobs,
-    candidates,
-    timeline,
-    checklistTemplates,
-    progress,
-    setCurrentUserId,
-    addUser,
-    toggleUserActive,
-    updateUserRole,
-    addJob,
-    updateJob,
-    deleteJob,
-    addCandidate,
-    updateCandidate,
-    moveCandidateStage,
-    assignCandidate,
-    addNote,
-    sendEmail,
-    addChecklistTemplate,
-    toggleChecklistItem,
-    saveFormSubmission,
+    setCurrentUserId: (id) => setState((s) => ({ ...s, currentUserId: id })),
+
+    addJob: (data) => {
+      const job: Job = {
+        ...data,
+        id: generateId('job'),
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      setState((s) => ({ ...s, jobs: [job, ...s.jobs] }));
+      return job;
+    },
+    updateJob: (id, data) => {
+      setState((s) => ({
+        ...s,
+        jobs: s.jobs.map((j) => (j.id === id ? { ...j, ...data, updatedAt: nowIso() } : j)),
+      }));
+    },
+    deleteJob: (id) => {
+      setState((s) => ({
+        ...s,
+        jobs: s.jobs.filter((j) => j.id !== id),
+        candidates: s.candidates.filter((c) => c.jobId !== id),
+      }));
+    },
+
+    addCandidate: (data) => {
+      const candidate: Candidate = {
+        ...data,
+        id: generateId('cand'),
+        appliedAt: nowIso(),
+        lastActivityAt: nowIso(),
+      };
+      setState((s) => ({ ...s, candidates: [candidate, ...s.candidates] }));
+      return candidate;
+    },
+    updateCandidate: (id, data) => {
+      setState((s) => ({
+        ...s,
+        candidates: s.candidates.map((c) =>
+          c.id === id ? { ...c, ...data, lastActivityAt: nowIso() } : c
+        ),
+      }));
+    },
+    updateCandidateStage: (id, stage) => {
+      setState((s) => ({
+        ...s,
+        candidates: s.candidates.map((c) => {
+          if (c.id !== id) return c;
+          if (c.stage === stage) return c;
+          const activity: CandidateActivity = {
+            id: generateId('act'),
+            type: 'StageChange',
+            from: c.stage,
+            to: stage,
+            at: nowIso(),
+            by: currentUser?.name ?? 'System',
+          };
+          return {
+            ...c,
+            stage,
+            lastActivityAt: nowIso(),
+            activity: [...(c.activity ?? []), activity],
+          };
+        }),
+      }));
+    },
+    addCandidateNote: (id, body) => {
+      const trimmed = body.trim();
+      if (!trimmed) return;
+      setState((s) => ({
+        ...s,
+        candidates: s.candidates.map((c) => {
+          if (c.id !== id) return c;
+          const note: CandidateNote = {
+            id: generateId('note'),
+            body: trimmed,
+            at: nowIso(),
+            by: currentUser?.name ?? 'System',
+          };
+          const activity: CandidateActivity = {
+            id: generateId('act'),
+            type: 'Note',
+            at: nowIso(),
+            by: currentUser?.name ?? 'System',
+            note: trimmed,
+          };
+          return {
+            ...c,
+            notes: [...(c.notes ?? []), note],
+            activity: [...(c.activity ?? []), activity],
+            lastActivityAt: nowIso(),
+          };
+        }),
+      }));
+    },
+    deleteCandidate: (id) => {
+      setState((s) => ({ ...s, candidates: s.candidates.filter((c) => c.id !== id) }));
+    },
+
+    addUser: (data) => {
+      const user: User = { ...data, id: generateId('user') };
+      setState((s) => ({ ...s, users: [...s.users, user] }));
+      return user;
+    },
+    updateUser: (id, data) => {
+      setState((s) => ({
+        ...s,
+        users: s.users.map((u) => (u.id === id ? { ...u, ...data } : u)),
+      }));
+    },
+    deleteUser: (id) => {
+      setState((s) => ({
+        ...s,
+        users: s.users.filter((u) => u.id !== id),
+        currentUserId: s.currentUserId === id ? s.users[0]?.id ?? '' : s.currentUserId,
+      }));
+    },
+
+    addChecklist: (data) => {
+      const cl: ChecklistTemplate = { ...data, id: generateId('cl') };
+      setState((s) => ({ ...s, checklists: [...s.checklists, cl] }));
+      return cl;
+    },
+    updateChecklist: (id, data) => {
+      setState((s) => ({
+        ...s,
+        checklists: s.checklists.map((c) => (c.id === id ? { ...c, ...data } : c)),
+      }));
+    },
+    deleteChecklist: (id) => {
+      setState((s) => ({ ...s, checklists: s.checklists.filter((c) => c.id !== id) }));
+    },
+    toggleChecklistItemForCandidate: (candidateId, checklistId, itemId) => {
+      setState((s) => ({
+        ...s,
+        candidates: s.candidates.map((c) => {
+          if (c.id !== candidateId) return c;
+          const progress = { ...(c.checklistProgress ?? {}) };
+          const completed = Array.isArray(progress[checklistId]) ? [...progress[checklistId]] : [];
+          const idx = completed.indexOf(itemId);
+          if (idx >= 0) completed.splice(idx, 1);
+          else completed.push(itemId);
+          progress[checklistId] = completed;
+          return { ...c, checklistProgress: progress, lastActivityAt: nowIso() };
+        }),
+      }));
+    },
+
+    resetData: () => {
+      setState({
+        jobs: seedJobs,
+        candidates: seedCandidates,
+        users: seedUsers,
+        checklists: seedChecklists,
+        currentUserId: seedUsers[0]?.id ?? '',
+      });
+    },
   };
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
@@ -310,14 +261,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
 export function useAppData(): AppDataContextValue {
   const ctx = useContext(AppDataContext);
-  if (!ctx) throw new Error('useAppData must be used inside AppDataProvider');
+  if (!ctx) throw new Error('useAppData must be used within AppDataProvider');
   return ctx;
+}
+
+export function isAdmin(role: Role): boolean {
+  return role === 'Admin';
 }
 
 export function canEdit(role: Role): boolean {
   return role === 'Admin' || role === 'Recruiter';
 }
 
-export function isAdmin(role: Role): boolean {
-  return role === 'Admin';
+export function canEditJob(role: Role): boolean {
+  return role === 'Admin' || role === 'Recruiter';
 }
+
+export type { ChecklistItem };

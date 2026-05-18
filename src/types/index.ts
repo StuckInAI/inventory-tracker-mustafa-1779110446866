@@ -1,5 +1,3 @@
-// Shared types for the ATS app
-
 export type Role = 'Admin' | 'Recruiter' | 'HiringManager';
 
 export type User = {
@@ -8,6 +6,7 @@ export type User = {
   email: string;
   role: Role;
   active: boolean;
+  title?: string;
 };
 
 export type JobStatus = 'Draft' | 'Open' | 'OnHold' | 'Closed';
@@ -22,47 +21,54 @@ export type Job = {
   status: JobStatus;
   description: string;
   ownerId: string;
-  assignedRecruiterIds?: string[];
   createdAt: string;
   updatedAt: string;
 };
 
-export type Stage =
+export type CandidateStage =
   | 'Applied'
   | 'Screening'
   | 'Interview'
   | 'Offer'
-  | 'BackgroundCheck'
-  | 'Onboarding'
   | 'Hired'
   | 'Rejected';
 
-export const PIPELINE_STAGES: Stage[] = [
-  'Applied',
-  'Screening',
-  'Interview',
-  'Offer',
-  'BackgroundCheck',
-  'Onboarding',
-  'Hired',
-  'Rejected',
-];
+export type CandidateNote = {
+  id: string;
+  body: string;
+  at: string;
+  by: string;
+};
+
+export type CandidateActivity = {
+  id: string;
+  type: 'StageChange' | 'Note' | 'Applied' | 'Other';
+  at: string;
+  by: string;
+  from?: CandidateStage;
+  to?: CandidateStage;
+  note?: string;
+  message?: string;
+};
 
 export type Candidate = {
   id: string;
+  firstName: string;
+  lastName: string;
   fullName: string;
   email: string;
   phone?: string;
   jobId: string;
-  stage: Stage;
+  stage: CandidateStage;
   source?: string;
-  resumeUrl?: string;
-  coverLetter?: string;
-  notes?: string;
-  assignedRecruiterId?: string;
+  location?: string;
+  resumeSummary?: string;
   appliedAt: string;
   lastActivityAt: string;
-  checklistProgress?: Record<string, boolean>;
+  notes: CandidateNote[];
+  activity: CandidateActivity[];
+  checklistProgress?: Record<string, string[]>;
+  tags?: string[];
 };
 
 export type ChecklistItem = {
@@ -74,14 +80,7 @@ export type ChecklistItem = {
 export type ChecklistTemplate = {
   id: string;
   name: string;
-  stage: Stage;
+  description?: string;
+  appliesToStage?: CandidateStage;
   items: ChecklistItem[];
-};
-
-export type ActivityLog = {
-  id: string;
-  candidateId: string;
-  message: string;
-  actorId: string;
-  createdAt: string;
 };
