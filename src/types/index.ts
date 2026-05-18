@@ -6,6 +6,8 @@ export type User = {
   email: string;
   role: Role;
   active: boolean;
+  title?: string;
+  avatarColor?: string;
 };
 
 export type JobStatus = 'Draft' | 'Open' | 'OnHold' | 'Closed';
@@ -24,7 +26,7 @@ export type Job = {
   updatedAt: string;
 };
 
-export type CandidateStage =
+export type Stage =
   | 'Applied'
   | 'Screening'
   | 'Interview'
@@ -34,36 +36,38 @@ export type CandidateStage =
 
 export type CandidateNote = {
   id: string;
-  authorId: string;
-  content: string;
-  createdAt: string;
+  body: string;
+  by: string;
+  at: string;
 };
 
 export type CandidateActivity = {
   id: string;
-  type: 'StageChange' | 'Note' | 'Created' | 'Updated' | 'Applied' | 'Other';
-  message?: string;
-  by?: string;
+  type: 'stage_change' | 'note' | 'applied' | 'created';
   at: string;
-  authorId?: string;
-  createdAt?: string;
+  by?: string;
+  from?: Stage;
+  to?: Stage;
+  note?: string;
+  message?: string;
 };
 
 export type Candidate = {
   id: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone?: string;
-  location?: string;
   jobId: string;
-  stage: CandidateStage;
+  stage: Stage;
   source?: string;
-  resumeUrl?: string;
-  appliedAt: string;
-  lastActivityAt: string;
+  resumeSummary?: string;
+  skills?: string[];
   notes: CandidateNote[];
   activity: CandidateActivity[];
   checklistProgress?: Record<string, Record<string, boolean>>;
+  appliedAt: string;
+  lastActivityAt: string;
 };
 
 export type ChecklistItem = {
@@ -71,10 +75,10 @@ export type ChecklistItem = {
   label: string;
 };
 
-export type Checklist = {
+export type ChecklistTemplate = {
   id: string;
   name: string;
   description?: string;
-  stage?: CandidateStage;
+  stage?: Stage;
   items: ChecklistItem[];
 };
