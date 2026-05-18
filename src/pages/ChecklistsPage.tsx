@@ -1,111 +1,118 @@
 import { useState } from 'react';
-import { CheckSquare, Plus, Trash2 } from 'lucide-react';
-import Card from '@/components/ui/Card';
+import Card, { CardHeader } from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
-import { useAppData, canEditJob } from '@/hooks/useAppData';
+import { useAppData, canEdit } from '@/hooks/useAppData';
+import { CheckSquare } from 'lucide-react';
 
 export default function ChecklistsPage() {
-  const { checklists, addChecklist, toggleChecklistItem, addChecklistItem, removeChecklist, currentUser } = useAppData();
-  const [newTitle, setNewTitle] = useState('');
-  const [newItemText, setNewItemText] = useState<Record<string, string>>({});
+  const { checklistTemplates, candidates, currentUser, toggleChecklistItem } = useAppData();
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(candidates[0]?.id ?? '');
 
-  const canEdit = canEditJob(currentUser.role);
+  const editable = canEdit(currentUser.role);
+  const selectedCandidate = candidates.find((c) => c.id === selectedCandidateId);
+
+  if (checklistTemplates.length === 0) {
+    return (
+      <Card>
+        <EmptyState
+          icon={<CheckSquare size={22} />}
+          title="No checklists yet"
+          description="Checklist templates help standardize the hiring process across roles."
+        />
+      </Card>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700 }}>Checklists</h1>
-          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 4 }}>Track interview prep, offer steps, and onboarding tasks.</p>
-        </div>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Checklists</h1>
+        <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
+          Track standardized hiring tasks for each candidate.
+        </p>
       </div>
 
-      {canEdit && (
-        <Card>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <input
-              type="text"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="New checklist title..."
-              style={{ flex: 1, background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)', borderRadius: 'var(--radius-md)', padding: '9px 12px', fontSize: 13 }}
-            />
-            <Button
-              icon={<Plus size={15} />}
-              disabled={!newTitle.trim()}
-              onClick={() => {
-                addChecklist(newTitle.trim());
-                setNewTitle('');
-              }}
-            >
-              Add
-            </Button>
-          </div>
-        </Card>
-      )}
+      <Card>
+        <CardHeader
+          title="Select candidate"
+          subtitle="Choose a candidate to view and update their checklist progress."
+        />
+        <select
+          value={selectedCandidateId}
+          onChange={(e) => setSelectedCandidateId(e.target.value)}
+          style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border-strong)',
+            borderRadius: 8,
+            padding: '9px 12px',
+            fontSize: 13,
+            width: '100%',
+            maxWidth: 360,
+          }}
+        >
+          {candidates.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} — {c.stage}
+            </option>
+          ))}
+        </select>
+      </Card>
 
-      {checklists.length === 0 ? (
-        <Card>
-          <EmptyState icon={<CheckSquare size={20} />} title="No checklists yet" description="Create your first checklist to organize hiring tasks." />
-        </Card>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-          {checklists.map((cl) => {
-            const done = cl.items.filter((i) => i.done).length;
-            return (
-              <Card key={cl.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: 15, fontWeight: 600 }}>{cl.title}</h3>
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>{done} / {cl.items.length} complete</div>
-                  </div>
-                  {canEdit && (
-                    <button onClick={() => removeChecklist(cl.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 4 }}>
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {cl.items.map((item) => (
-                    <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, cursor: canEdit ? 'pointer' : 'default' }}>
-                      <input
-                        type="checkbox"
-                        checked={item.done}
-                        disabled={!canEdit}
-                        onChange={() => toggleChecklistItem(cl.id, item.id)}
-                      />
-                      <span style={{ textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--color-text-muted)' : 'var(--color-text)' }}>{item.text}</span>
-                    </label>
-                  ))}
-                </div>
-                {canEdit && (
-                  <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                    <input
-                      type="text"
-                      value={newItemText[cl.id] ?? ''}
-                      onChange={(e) => setNewItemText({ ...newItemText, [cl.id]: e.target.value })}
-                      placeholder="New item..."
-                      style={{ flex: 1, background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)', borderRadius: 'var(--radius-md)', padding: '7px 10px', fontSize: 12 }}
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!(newItemText[cl.id] ?? '').trim()}
-                      onClick={() => {
-                        addChecklistItem(cl.id, (newItemText[cl.id] ?? '').trim());
-                        setNewItemText({ ...newItemText, [cl.id]: '' });
+      {selectedCandidate &&
+        checklistTemplates.map((cl) => {
+          const completed = selectedCandidate.checklistProgress?.[cl.id] ?? [];
+          return (
+            <Card key={cl.id}>
+              <CardHeader
+                title={cl.name}
+                subtitle={cl.description}
+                action={cl.appliesToStage ? <Badge tone="info">{cl.appliesToStage}</Badge> : undefined}
+              />
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {cl.items.map((item) => {
+                  const isDone = completed.includes(item.id);
+                  return (
+                    <li
+                      key={item.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: isDone ? 'var(--color-success-soft)' : 'var(--color-surface-2)',
                       }}
                     >
-                      Add
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+                      <input
+                        type="checkbox"
+                        checked={isDone}
+                        disabled={!editable}
+                        onChange={() => toggleChecklistItem(selectedCandidate.id, cl.id, item.id)}
+                      />
+                      <span style={{ fontSize: 13, textDecoration: isDone ? 'line-through' : 'none' }}>
+                        {item.label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {!editable && (
+                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--color-text-muted)' }}>
+                  You don't have permission to update checklist items.
+                </div>
+              )}
+            </Card>
+          );
+        })}
+
+      {!selectedCandidate && (
+        <Card>
+          <EmptyState title="No candidate selected" description="Pick a candidate above to see their checklist progress." />
+        </Card>
       )}
+      <div style={{ display: 'none' }}><Button>placeholder</Button></div>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+// Core domain types for the ATS app
+
 export type Role = 'Admin' | 'Recruiter' | 'HiringManager';
 
 export type User = {
@@ -8,8 +10,8 @@ export type User = {
   active: boolean;
 };
 
-export type EmploymentType = 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
-export type JobStatus = 'Open' | 'Closed';
+export type JobStatus = 'Draft' | 'Open' | 'OnHold' | 'Closed';
+export type EmploymentType = 'FullTime' | 'PartTime' | 'Contract' | 'Internship';
 
 export type Job = {
   id: string;
@@ -17,82 +19,82 @@ export type Job = {
   department: string;
   location: string;
   employmentType: EmploymentType;
-  description: string;
   status: JobStatus;
-  assignedRecruiterIds: string[];
+  description: string;
+  ownerId: string;
   createdAt: string;
+  updatedAt: string;
 };
 
-export type PipelineStage =
+export type Stage =
   | 'Applied'
-  | 'Referral'
-  | 'Screened'
+  | 'Screening'
   | 'Interview'
   | 'Offer'
   | 'Hired'
-  | 'Rejected'
-  | 'Onboarding'
-  | 'BackgroundCheck';
+  | 'Rejected';
 
-export const PIPELINE_STAGES: PipelineStage[] = [
+export const STAGES: Stage[] = [
   'Applied',
-  'Referral',
-  'Screened',
+  'Screening',
   'Interview',
   'Offer',
   'Hired',
   'Rejected',
-  'Onboarding',
-  'BackgroundCheck',
 ];
+
+export type ActivityEntry = {
+  id: string;
+  at: string;
+  type: 'StageChange' | 'Note' | 'Applied' | 'ChecklistItem';
+  message: string;
+  byUserId?: string;
+};
 
 export type Candidate = {
   id: string;
-  jobId: string;
-  fullName: string;
+  name: string;
   email: string;
-  phone: string;
-  resumeFileName: string;
-  tags: string[];
-  stage: PipelineStage;
-  assignedRecruiterId: string | null;
+  phone?: string;
+  jobId: string;
+  stage: Stage;
+  source?: string;
+  resumeSummary?: string;
   appliedAt: string;
   lastActivityAt: string;
-  source: 'CareersPage' | 'Internal';
-};
-
-export type TimelineEntryType = 'note' | 'email' | 'stage_change' | 'system';
-
-export type TimelineEntry = {
-  id: string;
-  candidateId: string;
-  type: TimelineEntryType;
-  authorId: string | null;
-  authorName: string;
-  createdAt: string;
-  content: string;
-  subject?: string;
-  fromStage?: PipelineStage;
-  toStage?: PipelineStage;
+  activity: ActivityEntry[];
+  checklistProgress?: Record<string, string[]>; // templateId -> completed itemIds
 };
 
 export type ChecklistItem = {
   id: string;
   label: string;
-  requiresForm: boolean;
-  formTemplate?: string;
 };
 
 export type ChecklistTemplate = {
   id: string;
   name: string;
-  stage: 'Onboarding' | 'BackgroundCheck';
+  description?: string;
+  appliesToStage?: Stage;
   items: ChecklistItem[];
 };
 
-export type CandidateChecklistProgress = {
-  candidateId: string;
-  templateId: string;
-  completedItemIds: string[];
-  formSubmissions: Record<string, string>;
+export type AppDataContextValue = {
+  currentUser: User;
+  setCurrentUserId: (id: string) => void;
+  users: User[];
+  jobs: Job[];
+  candidates: Candidate[];
+  checklistTemplates: ChecklistTemplate[];
+  addJob: (data: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>) => Job;
+  updateJob: (id: string, data: Partial<Omit<Job, 'id' | 'createdAt' | 'updatedAt'>>) => void;
+  deleteJob: (id: string) => void;
+  addCandidate: (data: Omit<Candidate, 'id' | 'appliedAt' | 'lastActivityAt' | 'activity'>) => Candidate;
+  updateCandidate: (id: string, data: Partial<Candidate>) => void;
+  moveCandidateStage: (id: string, stage: Stage) => void;
+  addCandidateNote: (id: string, note: string) => void;
+  toggleChecklistItem: (candidateId: string, templateId: string, itemId: string) => void;
+  addUser: (data: Omit<User, 'id'>) => User;
+  updateUser: (id: string, data: Partial<User>) => void;
+  removeUser: (id: string) => void;
 };
